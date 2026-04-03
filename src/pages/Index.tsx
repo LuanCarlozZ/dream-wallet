@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Landmark } from "lucide-react";
 import {
-  loadData, addTransaction, deleteTransaction, toggleBillPaid, deleteBill, updateGoal,
+  loadData, addTransaction, deleteTransaction, toggleBillPaid, deleteBill, addBill, updateGoal, addGoal, deleteGoal,
   getMonthTransactions, getTotalByType, FinanceData,
 } from "@/lib/finance-store";
 import { BalanceCards } from "@/components/finance/BalanceCards";
@@ -38,8 +38,20 @@ const Index = () => {
     setData(prev => deleteBill(prev, id));
   }, []);
 
+  const handleAddBill = useCallback((b: Parameters<typeof addBill>[1]) => {
+    setData(prev => addBill(prev, b));
+  }, []);
+
   const handleAddFunds = useCallback((id: string, amount: number) => {
     setData(prev => updateGoal(prev, id, amount));
+  }, []);
+
+  const handleAddGoal = useCallback((g: Parameters<typeof addGoal>[1]) => {
+    setData(prev => addGoal(prev, g));
+  }, []);
+
+  const handleDeleteGoal = useCallback((id: string) => {
+    setData(prev => deleteGoal(prev, id));
   }, []);
 
   const now = new Date();
@@ -85,8 +97,8 @@ const Index = () => {
           {/* Right: Bills, Goals, Score */}
           <div className="space-y-4">
             <HealthScore transactions={monthTxns} />
-            <UpcomingBills bills={data.bills} onToggle={handleToggleBill} onDelete={handleDeleteBill} />
-            <Goals goals={data.goals} onAddFunds={handleAddFunds} />
+            <UpcomingBills bills={data.bills} onToggle={handleToggleBill} onDelete={handleDeleteBill} onAdd={handleAddBill} />
+            <Goals goals={data.goals} onAddFunds={handleAddFunds} onAddGoal={handleAddGoal} onDeleteGoal={handleDeleteGoal} />
           </div>
         </div>
       </main>
