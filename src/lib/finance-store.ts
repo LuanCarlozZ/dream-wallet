@@ -141,6 +141,18 @@ export function deleteBill(data: FinanceData, id: string): FinanceData {
   return updated;
 }
 
+export function addGoal(data: FinanceData, g: Omit<SavingsGoal, 'id'>): FinanceData {
+  const updated = { ...data, goals: [...data.goals, { ...g, id: generateId() }] };
+  saveData(updated);
+  return updated;
+}
+
+export function deleteGoal(data: FinanceData, id: string): FinanceData {
+  const updated = { ...data, goals: data.goals.filter(g => g.id !== id) };
+  saveData(updated);
+  return updated;
+}
+
 export function updateGoal(data: FinanceData, id: string, amount: number): FinanceData {
   const updated = { ...data, goals: data.goals.map(g => g.id === id ? { ...g, currentAmount: Math.min(g.targetAmount, g.currentAmount + amount) } : g) };
   saveData(updated);
