@@ -158,10 +158,6 @@ export function updateGoal(data: FinanceData, id: string, amount: number): Finan
   saveData(updated);
   return updated;
 }
-  const updated = { ...data, goals: data.goals.map(g => g.id === id ? { ...g, currentAmount: Math.min(g.targetAmount, g.currentAmount + amount) } : g) };
-  saveData(updated);
-  return updated;
-}
 
 // Helpers
 export function getMonthTransactions(transactions: Transaction[], date: Date = new Date()): Transaction[] {
