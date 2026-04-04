@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export type TransactionType = 'income' | 'expense';
 
 export type Category =
@@ -28,14 +30,14 @@ export interface Transaction {
   amount: number;
   category: Category;
   description: string;
-  date: string; // ISO
+  date: string;
 }
 
 export interface Bill {
   id: string;
   name: string;
   amount: number;
-  dueDate: string; // ISO
+  dueDate: string;
   paid: boolean;
   category: Category;
 }
@@ -48,118 +50,120 @@ export interface SavingsGoal {
   icon: string;
 }
 
-export interface FinanceData {
-  transactions: Transaction[];
-  bills: Bill[];
-  goals: SavingsGoal[];
+// ---- Supabase CRUD ----
+
+export async function fetchTransactions(userId: string): Promise<Transaction[]> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id,
+    type: r.type as TransactionType,
+    amount: Number(r.amount),
+    category: r.category as Category,
+    description: r.description,
+    date: r.date,
+  }));
 }
 
-const STORAGE_KEY = 'finance-data';
-
-const generateId = () => crypto.randomUUID();
-
-function getDefaultData(): FinanceData {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-
-  const transactions: Transaction[] = [
-    { id: generateId(), type: 'income', amount: 5500, category: 'salary', description: 'Salário mensal', date: new Date(year, month, 5).toISOString() },
-    { id: generateId(), type: 'income', amount: 1200, category: 'freelance', description: 'Projeto freelance', date: new Date(year, month, 12).toISOString() },
-    { id: generateId(), type: 'expense', amount: 1800, category: 'housing', description: 'Aluguel', date: new Date(year, month, 1).toISOString() },
-    { id: generateId(), type: 'expense', amount: 450, category: 'food', description: 'Supermercado', date: new Date(year, month, 3).toISOString() },
-    { id: generateId(), type: 'expense', amount: 200, category: 'transport', description: 'Combustível', date: new Date(year, month, 7).toISOString() },
-    { id: generateId(), type: 'expense', amount: 89.90, category: 'subscriptions', description: 'Streaming', date: new Date(year, month, 10).toISOString() },
-    { id: generateId(), type: 'expense', amount: 350, category: 'entertainment', description: 'Jantar fora', date: new Date(year, month, 15).toISOString() },
-    { id: generateId(), type: 'expense', amount: 150, category: 'health', description: 'Farmácia', date: new Date(year, month, 8).toISOString() },
-    // Previous month
-    { id: generateId(), type: 'income', amount: 5500, category: 'salary', description: 'Salário mensal', date: new Date(year, month - 1, 5).toISOString() },
-    { id: generateId(), type: 'expense', amount: 1800, category: 'housing', description: 'Aluguel', date: new Date(year, month - 1, 1).toISOString() },
-    { id: generateId(), type: 'expense', amount: 520, category: 'food', description: 'Supermercado', date: new Date(year, month - 1, 4).toISOString() },
-    { id: generateId(), type: 'expense', amount: 180, category: 'transport', description: 'Uber', date: new Date(year, month - 1, 9).toISOString() },
-  ];
-
-  const nextMonth = new Date(year, month + 1);
-  const bills: Bill[] = [
-    { id: generateId(), name: 'Aluguel', amount: 1800, dueDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 1).toISOString(), paid: false, category: 'housing' },
-    { id: generateId(), name: 'Internet', amount: 120, dueDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 10).toISOString(), paid: false, category: 'bills' },
-    { id: generateId(), name: 'Energia', amount: 280, dueDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 15).toISOString(), paid: false, category: 'bills' },
-    { id: generateId(), name: 'Cartão de Crédito', amount: 1450, dueDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 20).toISOString(), paid: false, category: 'bills' },
-    { id: generateId(), name: 'Streaming', amount: 89.90, dueDate: new Date(nextMonth.getFullYear(), nextMonth.getMonth(), 10).toISOString(), paid: true, category: 'subscriptions' },
-  ];
-
-  const goals: SavingsGoal[] = [
-    { id: generateId(), name: 'Reserva de Emergência', targetAmount: 30000, currentAmount: 12500, icon: '🛡️' },
-    { id: generateId(), name: 'Viagem', targetAmount: 8000, currentAmount: 3200, icon: '✈️' },
-    { id: generateId(), name: 'Notebook Novo', targetAmount: 5000, currentAmount: 4100, icon: '💻' },
-  ];
-
-  return { transactions, bills, goals };
+export async function addTransactionDB(userId: string, t: Omit<Transaction, "id">) {
+  const { error } = await supabase.from("transactions").insert({
+    user_id: userId,
+    type: t.type,
+    amount: t.amount,
+    category: t.category,
+    description: t.description,
+    date: t.date,
+  });
+  if (error) throw error;
 }
 
-export function loadData(): FinanceData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  const data = getDefaultData();
-  saveData(data);
-  return data;
+export async function deleteTransactionDB(id: string) {
+  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function saveData(data: FinanceData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export async function fetchBills(userId: string): Promise<Bill[]> {
+  const { data, error } = await supabase
+    .from("bills")
+    .select("*")
+    .eq("user_id", userId)
+    .order("due_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id,
+    name: r.name,
+    amount: Number(r.amount),
+    dueDate: r.due_date,
+    paid: r.paid,
+    category: r.category as Category,
+  }));
 }
 
-export function addTransaction(data: FinanceData, t: Omit<Transaction, 'id'>): FinanceData {
-  const updated = { ...data, transactions: [{ ...t, id: generateId() }, ...data.transactions] };
-  saveData(updated);
-  return updated;
+export async function addBillDB(userId: string, b: Omit<Bill, "id">) {
+  const { error } = await supabase.from("bills").insert({
+    user_id: userId,
+    name: b.name,
+    amount: b.amount,
+    due_date: b.dueDate,
+    paid: b.paid,
+    category: b.category,
+  });
+  if (error) throw error;
 }
 
-export function deleteTransaction(data: FinanceData, id: string): FinanceData {
-  const updated = { ...data, transactions: data.transactions.filter(t => t.id !== id) };
-  saveData(updated);
-  return updated;
+export async function toggleBillPaidDB(id: string, paid: boolean) {
+  const { error } = await supabase.from("bills").update({ paid }).eq("id", id);
+  if (error) throw error;
 }
 
-export function addBill(data: FinanceData, b: Omit<Bill, 'id'>): FinanceData {
-  const updated = { ...data, bills: [...data.bills, { ...b, id: generateId() }] };
-  saveData(updated);
-  return updated;
+export async function deleteBillDB(id: string) {
+  const { error } = await supabase.from("bills").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function toggleBillPaid(data: FinanceData, id: string): FinanceData {
-  const updated = { ...data, bills: data.bills.map(b => b.id === id ? { ...b, paid: !b.paid } : b) };
-  saveData(updated);
-  return updated;
+export async function fetchGoals(userId: string): Promise<SavingsGoal[]> {
+  const { data, error } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(r => ({
+    id: r.id,
+    name: r.name,
+    targetAmount: Number(r.target_amount),
+    currentAmount: Number(r.current_amount),
+    icon: r.icon,
+  }));
 }
 
-export function deleteBill(data: FinanceData, id: string): FinanceData {
-  const updated = { ...data, bills: data.bills.filter(b => b.id !== id) };
-  saveData(updated);
-  return updated;
+export async function addGoalDB(userId: string, g: Omit<SavingsGoal, "id">) {
+  const { error } = await supabase.from("goals").insert({
+    user_id: userId,
+    name: g.name,
+    target_amount: g.targetAmount,
+    current_amount: g.currentAmount,
+    icon: g.icon,
+  });
+  if (error) throw error;
 }
 
-export function addGoal(data: FinanceData, g: Omit<SavingsGoal, 'id'>): FinanceData {
-  const updated = { ...data, goals: [...data.goals, { ...g, id: generateId() }] };
-  saveData(updated);
-  return updated;
+export async function updateGoalDB(id: string, currentAmount: number) {
+  const { error } = await supabase.from("goals").update({ current_amount: currentAmount }).eq("id", id);
+  if (error) throw error;
 }
 
-export function deleteGoal(data: FinanceData, id: string): FinanceData {
-  const updated = { ...data, goals: data.goals.filter(g => g.id !== id) };
-  saveData(updated);
-  return updated;
+export async function deleteGoalDB(id: string) {
+  const { error } = await supabase.from("goals").delete().eq("id", id);
+  if (error) throw error;
 }
 
-export function updateGoal(data: FinanceData, id: string, amount: number): FinanceData {
-  const updated = { ...data, goals: data.goals.map(g => g.id === id ? { ...g, currentAmount: Math.min(g.targetAmount, g.currentAmount + amount) } : g) };
-  saveData(updated);
-  return updated;
-}
+// ---- Helper functions (pure, no DB) ----
 
-// Helpers
 export function getMonthTransactions(transactions: Transaction[], date: Date = new Date()): Transaction[] {
   const month = date.getMonth();
   const year = date.getFullYear();
